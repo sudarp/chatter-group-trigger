@@ -1,7 +1,18 @@
 /*
 If this opportunity's account is linked to any chatter groups via a Chatter_Group_Member__c
 then a post will be made to the wall if our criteria is met
+
+The Chatter_Group_Member__c object is a custom object which allows users to relate an account to a chatter group.
+It contains only the following fields:
+Account__c	-  Master-Detail(Account)
+Chatter_Group_Id__c  -	Text(18)
+Chatter_Group_Name__c	-  Text(40)
+
+Since you cant have a lookup relationship to a chatter group, I have to store the name and Id manually.
+In visualforce, I make it appear as a lookup field and populate those fields in Apex.
 */
+
+
 trigger PostOppToChtrGroup on Opportunity (after insert, after update) {
  List<FeedItem> posts = new List<FeedItem>();
  List<Chatter_Group_Member__c> cgms = new List<Chatter_Group_Member__c>();
