@@ -1,0 +1,64 @@
+/*
+If this opportunity's account is linked to any chatter groups via a Chatter_Group_Member__c
+then a post will be made to the wall if our criteria is met
+*/
+trigger PostOppToChtrGroup on Opportunity (after insert, after update) {
+ List<FeedItem> posts = new List<FeedItem>();
+ List<Chatter_Group_Member__c> cgms = new List<Chatter_Group_Member__c>();
+ Set<Id> oppAccs = new Set<Id>();
+
+  //I want to post to the chatter group wall ONLY if this opp is just being created or has just been closed
+  //customise this code however you want in order to change this criteria
+ for(Opportunity opp : Trigger.New){
+  if(Trigger.isInsert && !oppAccs.contains(opp.AccountId)){
+   oppAccs.add(opp.AccountId);
+  }else if(Trigger.isUpdate && opp.isClosed == true && trigger.oldMap.get(opp.Id).isClosed == false && !oppAccs.contains(opp.AccountId)){
+   oppAccs.add(opp.AccountId);
+  }
+ }
+
+  //I don't want to post in archived groups so find them all and store their IDs for exclusion from the next SOQL query
+ if(oppAccs.size() > 0){
+  Set<Id> archivedGroups = new Set<Id>();
+  for(CollaborationGroup cg : GlobalHelperMethods.archivedGroups){
+   archivedGroups.add(cg.Id);
+  }
+
+    //pull out all the Chatter_Group_Member__c recodrs which relate to this opporunity's account
+  cgms = [SELECT Id, Chatter_Group_Id__c, Account__c, Account__r.Name FROM Chatter_Group_Member__c WHERE Account__c IN :oppAccs AND (NOT Chatter_Group_Id__c IN :archivedGroups)];
+
+    /*
+    Now loop over each opportunity and over each Chatter_Group_Member__c record.
+    If this opportunity's account has a relationship to a chatter group, create a FeedItem
+    and populate with the information we want to post on the wall
+    */
+  if(cgms != null && cgms.size() > 0){
+   for(Opportunity o : Trigger.new){
+    for(Chatter_Group_Member__c ctrGroup : cgms){
+     if(o.AccountId == ctrGroup.Account__c){
+      if(Trigger.isInsert){
+       FeedItem fitem = new FeedItem();
+       fitem.Body = ''+UserInfo.GetName()+' created a new Opportunity against '+ctrGroup.Account__r.Name+', quote number '+o.Quote_Number__c;
+       fitem.ParentId = ctrGroup.Chatter_Group_Id__c;
+       fitem.Type = 'LinkPost';
+       fitem.CreatedById = UserInfo.getUserId();
+       fitem.LinkUrl = URL.getSalesforceBaseUrl().toExternalForm()+'/'+o.Id;
+       fitem.Title = o.Name;
+       posts.add(fitem);
+      }else{ //opportunity is being closed
+       FeedItem fitem = new FeedItem();
+       fitem.Body = ''+UserInfo.GetName()+' just closed '+o.Quote_Number__c+ ' as '+o.StageName;
+       fitem.ParentId = ctrGroup.Chatter_Group_Id__c;
+       fitem.Type = 'LinkPost';
+       fitem.CreatedById = UserInfo.getUserId();
+       fitem.LinkUrl = URL.getSalesforceBaseUrl().toExternalForm()+'/'+o.Id;
+       fitem.Title = o.Name;
+       posts.add(fitem);
+      }
+     }
+    }
+   }
+   insert posts;
+  }
+ }
+}
