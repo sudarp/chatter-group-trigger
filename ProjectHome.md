@@ -1,0 +1,1 @@
+With this trigger, and an intermediary object called "Chatter\_Group\_Member" (which simply links an account to a chatter group) you can post updates straight to a chatter group wall.  This specific trigger is for opportunities but you can customise it to work on any object.
